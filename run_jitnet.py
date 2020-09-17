@@ -2,18 +2,20 @@
 import numpy as np
 import os, json, cv2, random
 from model import mask_rcnn_pred
-from metrics import meanIOU
+from utils.metrics import meanIOU
 from model.networks.jitnet import JITNet
-import utils.image_trans as img_trans
+import utils.img_trans as img_trans
 from model.losses import CrossEntropy2d
 import torch
 import torch.nn as nn
+import time
+import pdb
 
 def train_model(opt, model, batch):
     # get mask-rcnn preds
     batch = batch.unsqueeze(0)
     outputs = model(batch)
-    return outputs, gt_seg
+    return outputs
 
 def update_model(opt, loss_fn, optimizer, outputs, maskrcnn_outputs):
     maskrcnn_outputs = maskrcnn_outputs.to(opt.device)
@@ -22,9 +24,10 @@ def update_model(opt, loss_fn, optimizer, outputs, maskrcnn_outputs):
     loss.backward()
     del loss
 
-def run_model(opt, model, batch):
+def run_model(opt, model, batch, pre_process=True):
     # run model
-    batch = img_trans.transform(batch)
+    if pre_process:
+        batch = img_trans.transform(batch)
     batch = batch.unsqueeze(0)
     outputs = model(batch)
     return outputs
@@ -52,42 +55,43 @@ def run_video(opt, data_iter):
             batch = next(data_iter)
         except StopIteration:
             break
-
         if opt.adaptive:
             print("iteration: ", iter_id)
             if iter_id % delta == 0:
                 u = 0
                 update = True
-                mask_rcnn_output = maskrcnn.get_predictions(batch)
+                mask_rcnn_output = maskrcnn_model.get_predictions(batch)
+                batch, gt_label = img_trans.transform(batch, mask_rcnn_output)
                 while(update):
+                    start = time.time()
                     output = train_model(opt, model, batch)
-                    import pdb; pdb.set_trace()
+                    end_train = time.time()
                     # save the stuff every iteration
-                    acc = metric.get_score(mask_rcnn_output, output, u)
+                    acc = metric.get_score(gt_label, output, u)
+                    end_acc = time.time()
                     if u < umax and acc < a_thresh:
-                        update_model(opt, loss_fn, optimizer, output, mask_rcnn_output)
+                        update_model(opt, loss_fn, optimizer, output, gt_label)
                     else:
                         update = False
-                    print(u)
+                    end = time.time()
+                    print(u, end_train - start, end_acc - end_train, end - end_acc, acc)
                     u+=1
                     del output
                 if acc > a_thresh:
                     delta = min(delta_max, 2 * delta)
                 else:
                     delta = max(delta_min, delta / 2)
-                output = run_model(opt, model, batch) # run model with new weights
+                output = run_model(opt, model, batch, False) # run model with new weights
             else:
                 output = run_model(opt, model, batch)
-                if opt.acc_collect and (iter_id % opt.acc_interval == 0):
-                    acc = metric.get_score(mask_rcnn_output, output, iter_id)
-                    print(acc)
-                del output
+                # if opt.acc_collect and (iter_id % opt.acc_interval == 0):
+                #     acc = metric.get_score(mask_rcnn_output, output, iter_id)
+                #     print(acc)
         else:
-            output, model_time = run_model(opt, model, batch)
-            if opt.acc_collect:
-                acc = metric.get_score(mask_rcnn_output, output, iter_id)
-                print(acc)
-                # self.accum_coco.store_metric_coco(iter_id, batch, output, opt, is_baseline=True)
+            output = run_model(opt, model, batch)
+            # acc = metric.get_score(mask_rcnn_output, output, iter_id)
+            # print(acc)
+            # self.accum_coco.store_metric_coco(iter_id, batch, output, opt, is_baseline=True)
 
         # if opt.save_video:
         #     out_pred.write(pred)

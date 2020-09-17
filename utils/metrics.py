@@ -86,7 +86,7 @@ class Metric(ABC):
     def get_score(self, batch, outputs, iter_num):
         pass
 
-class meanIOU(Metric):
+class meanIOU(Metric): # TODO: optimize for GPU
     def get_score(self, mask_rcnn_outputs, outputs, iter_id):
         def convert2d(arr): # convert a one-hot into a thresholded array
             max_arr = arr.max(axis=0)

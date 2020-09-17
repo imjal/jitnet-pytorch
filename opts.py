@@ -16,7 +16,7 @@ class opts(object):
                              help='use jitnet online adaptation, otherwise default to running pretrained model')
     self.parser.add_argument('--delta_max', type=int, default=64, help='number of iterations to skip updating in stream')
     self.parser.add_argument('--delta_min', type=int, default=8, help='number of iterations to skip updating in video stream')
-    self.parser.add_argument('--umax', type=int, default=64, help='max number of iterations to update')
+    self.parser.add_argument('--umax', type=int, default=10, help='max number of iterations to update')
     
     self.parser.add_argument('--acc_thresh', type=int, default=80, help='accuracy threshold on when to stop updating')
 
