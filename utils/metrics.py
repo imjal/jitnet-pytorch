@@ -2,6 +2,7 @@ import numpy as np
 import pdb
 from abc import ABC, abstractmethod
 import copy
+import time
 
 # TODO: find some fix for this to make it less disgusting
 def ret_categories():
@@ -88,17 +89,17 @@ class Metric(ABC):
 
 class meanIOU(Metric): # TODO: optimize for GPU
     def get_score(self, mask_rcnn_outputs, outputs, iter_id):
-        def convert2d(arr): # convert a one-hot into a thresholded array
+        def convert2dtorch(arr): # convert a one-hot into a thresholded array
             max_arr = arr.max(axis=0)
             new_arr = arr.argmax(axis = 0) + 1
-            new_arr[max_arr < 0.1] = 0
+            new_arr[max_arr.values < 0.1] = 0
             return new_arr
-        # add to conf matrix for each image
-        pred = convert2d(outputs.detach().cpu().numpy()[0])
+        # add to conf matrix for each images
+        pred = convert2dtorch(outputs.detach()[0]).cpu().numpy()
         gt = copy.deepcopy(mask_rcnn_outputs[0]).numpy().astype(np.int64)
         N = outputs.detach().cpu().numpy()[0].shape[0] + 1
         conf_matrix = np.bincount(N * pred.reshape(-1) + gt.reshape(-1), minlength=N ** 2).reshape(N, N)
-        
+
         acc = np.full(N, np.nan, dtype=np.float)
         iou = np.full(N, np.nan, dtype=np.float)
         tp = conf_matrix.diagonal().astype(np.float)
