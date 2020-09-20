@@ -1,1 +1,4 @@
 *.pyc
+model_weights/*
+results/*
+.vscode/*

@@ -4,13 +4,14 @@ import os, json, cv2, random, torch, tqdm, torchvision
 from torchvision import transforms
 from torch.utils.data.dataloader import DataLoader
 from progress.bar import Bar
-from models.jitnet import JITNet
-from losses import CrossEntropy2d
+from model.networks.jitnet import JITNet
+from model.losses import CrossEntropy2d
 import pdb
 from PIL import Image
 import PIL
 import torch.nn as nn
-import label_mappings
+import utils.label_mappings as label_mappings
+import torchvision.transforms.functional as F
 # from image_trans import get_affine_transforms
 
 
@@ -82,7 +83,7 @@ class CocoDetection:
         img = F.to_tensor(img).double()
 
         # if we have a gt_segmentation, also convert
-        if gt_seg:
+        if gt_seg is not None:
             gt_seg = Image.fromarray(gt_seg)
             gt_seg = F.resize(gt_seg, new_size, Image.NEAREST)
             label = np.empty((720, 1280))
@@ -96,11 +97,23 @@ class CocoDetection:
     def __len__(self):
         return len(self.ids)
 
+def save_model(path, epoch, model, optimizer=None):
+  if isinstance(model, torch.nn.DataParallel):
+    state_dict = model.module.state_dict()
+  else:
+    state_dict = model.state_dict()
+  data = {'epoch': epoch,
+          'state_dict': state_dict}
+  if not (optimizer is None):
+    data['optimizer'] = optimizer.state_dict()
+  torch.save(data, path)
+
 coco_dataset = CocoDetection('/data2/jl5/centtrack_data/coco/train2017/', '/data2/jl5/centtrack_data/coco/annotations/instances_train2017.json', is_train=True)
 
 phase = 'train'
-num_epochs = 25
+num_epochs = 5
 ignore_index = 255
+device = 'cuda:0'
 
 data_loader = DataLoader(coco_dataset, batch_size=4, shuffle=False,
            num_workers=1, pin_memory=False, drop_last=True,
@@ -110,7 +123,7 @@ model = JITNet(80).double()
 if torch.cuda.device_count() > 1:
     model = nn.DataParallel(model)
 model.to(device)
-optimizer = torch.optim.RMSprop(model.parameters(), lr=0.001)
+optimizer = torch.optim.RMSprop(model.parameters(), lr=0.0001)
 loss_fn = CrossEntropy2d(ignore_index)
 
 print('Starting training...')
@@ -126,4 +139,4 @@ for epoch in range(num_epochs):
             optimizer.step()
         del output, loss, target_img, input_img
 
-    save_model(os.path.join(opt.save_dir, 'model_last.pth'), epoch, model, optimizer)
+    save_model('model_weights/model_last.pth', epoch, model, optimizer)

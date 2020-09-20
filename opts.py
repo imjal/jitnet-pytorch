@@ -19,6 +19,10 @@ class opts(object):
     self.parser.add_argument('--umax', type=int, default=10, help='max number of iterations to update')
     
     self.parser.add_argument('--acc_thresh', type=int, default=80, help='accuracy threshold on when to stop updating')
+    self.parser.add_argument('--results_dir', default='results', help='results dir for all exp')
+    self.parser.add_argument('--exp_id', default='default', help='experiment_id')
+
+    self.parser.add_argument('--save_video', action='store_true', help='Save the output of JITNet')
 
   def init(self, args=''):
     if args == '':
@@ -26,6 +30,9 @@ class opts(object):
     else:
       opt = self.parser.parse_args(args)
 
+    opt.results_dir = os.path.join(os.path.abspath(os.getcwd()), opt.results_dir)
+    opt.save_dir = os.path.join(opt.results_dir, opt.exp_id)
+    os.makedirs(opt.save_dir, exist_ok=True)
     opt.gpus_str = opt.gpus
     opt.gpus = [int(gpu) for gpu in opt.gpus.split(',')]
     opt.gpus = [i for i in range(len(opt.gpus))] if opt.gpus[0] >=0 else [-1]

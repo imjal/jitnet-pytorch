@@ -15,6 +15,9 @@ def demo(opt):
   if opt.demo == 'webcam' or \
     opt.demo[opt.demo.rfind('.') + 1:].lower() in video_ext:
     cam = cv2.VideoCapture(opt.demo)
+    opt.framerate = cam.get(cv2.CAP_PROP_FPS)
+    opt.input_w = int(cam.get(cv2.CAP_PROP_FRAME_WIDTH))
+    opt.input_h = int(cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     def _frame_from_video(video):
         while video.isOpened():

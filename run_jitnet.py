@@ -4,6 +4,7 @@ import os, json, cv2, random
 from model import mask_rcnn_pred
 from utils.metrics import meanIOU
 from model.networks.jitnet import JITNet
+from utils.visualize import visualize_masks
 import utils.img_trans as img_trans
 from model.losses import CrossEntropy2d
 import torch
@@ -42,12 +43,19 @@ def run_video(opt, data_iter):
     iter_id = 0
     maskrcnn_model = mask_rcnn_pred.MaskRCNNPred()
     model = JITNet(80).double()
+    # load model weights here
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
     model.to(opt.device)
     loss_fn = CrossEntropy2d(255)
     optimizer = torch.optim.RMSprop(model.parameters(), lr=0.001)
     metric = meanIOU(opt)
+
+    if opt.save_video:
+      fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+      vid_pth = os.path.join(opt.save_dir, opt.exp_id + '_pred')
+      out_pred = cv2.VideoWriter('{}.mp4'.format(vid_pth),fourcc,
+        opt.framerate, (opt.input_w, opt.input_h))
 
     while True:
         # data loading
@@ -93,17 +101,9 @@ def run_video(opt, data_iter):
             # print(acc)
             # self.accum_coco.store_metric_coco(iter_id, batch, output, opt, is_baseline=True)
 
-        # if opt.save_video:
-        #     out_pred.write(pred)
-        #     out_gt.write(gt)
+        if opt.save_video:
+            viz_pred = visualize_masks(output)
+            out_pred.write(viz_pred)
     
         del output, batch
         iter_id+=1
-        
-        
-    
-    
-
-
-
-
